@@ -1,19 +1,29 @@
 import { Paper, Typography, Avatar } from '@mui/material';
-import { Diagnosis, Gender, Patient } from '../../types';
+import { Diagnosis, Entry, EntryWithoutId, Gender, Patient } from '../../types';
 import MaleIcon from '@mui/icons-material/Male';
 import FemaleIcon from '@mui/icons-material/Female';
 import LockPersonIcon from '@mui/icons-material/LockPerson';
-
+import EntryCmp from './EntryCmp';
+import EntryForm from '../AddEntryForm';
+import patientService from "../../services/patients";
+import { useState } from 'react';
+import axios from 'axios';
 
 interface Props {
-	patient: Omit<Patient, "id"> | null;
+	patient: Patient | null;
 	diagnoses: Diagnosis[];
 }
 
 const PatientPage = ({ patient, diagnoses }: Props): JSX.Element => {
+	const [error, setError] = useState<string>();
+	const [entries, setEntries] = useState<Entry[]>(patient?.entries ?? []);
 
 	if (!patient) {
 		return <div>Patient does not exist</div>;
+	}
+
+	if (entries.length === 0) {
+		setEntries(patient.entries);
 	}
 
 	let genderIcon = <LockPersonIcon />;
@@ -21,6 +31,31 @@ const PatientPage = ({ patient, diagnoses }: Props): JSX.Element => {
 		genderIcon = <MaleIcon />;
 	else if (patient?.gender === Gender.Female)
 		genderIcon = <FemaleIcon />;
+
+	const submitNewEntry = async (entry: EntryWithoutId) => {
+
+		try {
+			const newEntry = await patientService.addEntry(entry, patient?.id);
+			setEntries(patient.entries.concat(newEntry));
+		} catch (e: unknown) {
+
+			if (axios.isAxiosError(e)) {
+
+				if (e?.response?.data && typeof e?.response?.data === "string") {
+					const message = e.response.data.replace('Something went wrong. Error: ', '');
+					console.error(message);
+					setError(message);
+				} else {
+					setError("Unrecognized axios error");
+				}
+
+			} else {
+
+				console.error("Unknown error", e);
+				setError("Unknown error");
+			}
+		}
+	};
 
 	return (
 		<Paper style={{ display: 'flex', flexDirection: 'column', alignItems: 'left' }}>
@@ -37,34 +72,19 @@ const PatientPage = ({ patient, diagnoses }: Props): JSX.Element => {
 			Occupation: {patient?.occupation}
 			</Typography>
 			<Typography variant="subtitle1" gutterBottom>
-			SSN: {patient?.ssn ?? 'Not available'}
+			ssn: {patient?.ssn ?? 'Not available'}
 			</Typography>
 		</div>
+		<EntryForm error={error} onSubmit={submitNewEntry} diagnoses={diagnoses} />
 		<div style={{ marginTop: '10px' }}>
 			<Typography variant="h5" style={{ marginRight: '10px' }}>
 			Entries
 			</Typography>
 		</div>
 		<div style={{ marginTop: '10px' }}>
-			{patient?.entries.map((entry, index) => (
-			<div key={index} style={{ display: 'flex', flexDirection: 'column' }}>
-				<div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-				<Typography variant="subtitle1" style={{ marginRight: '10px' }} gutterBottom>
-					{entry.date}
-				</Typography>
-				<Typography variant="subtitle1" gutterBottom style={{ fontStyle: 'italic' }}>
-					{entry.description}
-				</Typography>
-				</div>
-				{entry.diagnosisCodes && entry.diagnosisCodes.length > 0 && (
-				<div>
-					<ul>
-					{entry.diagnosisCodes.map((code, codeIndex) => (
-						<li key={codeIndex}>{code} {diagnoses.find(d => d.code === code)?.name ?? 'Diagnosis Name Not Found'}</li>
-					))}
-					</ul>
-				</div>
-				)}
+			{entries.map((entry) => (
+			<div key={entry.id}>
+				<EntryCmp entry={entry} diagnoses={diagnoses} />
 			</div>
 			))}
 		</div>

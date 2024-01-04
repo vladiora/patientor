@@ -12,6 +12,8 @@ import diagnosesService from "./services/diagnoses";
 const App = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  const [patient, setPatient] = useState<Patient>();
+  const match = useMatch('/patients/:id');
 
   useEffect(() => {
 
@@ -30,9 +32,20 @@ const App = () => {
 
   }, []);
 
-  const match = useMatch('/patients/:id');
+  useEffect(() => {
 
-  const patient = match ? patients.find(patient => patient.id === match.params.id) : null;
+    const getPatientById = (id: string | undefined) => {
+      if (!id) {
+        return null;
+      }
+
+      patientService.getPatient(id).then(resp => setPatient(resp));
+    }
+
+    if (match) {
+      getPatientById(match.params.id);
+    }
+  }, [match?.params.id]);
 
   return (
     <div className="App">
